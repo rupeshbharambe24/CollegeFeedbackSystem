@@ -119,3 +119,77 @@ BEGIN
 END $$;
 
 GRANT EXECUTE ON FUNCTION resolve_offering_for_prn(TEXT, TEXT) TO anon, authenticated;
+
+-- ---------- submit_feedback ----------
+-- The single write path for student feedback. Validates code → campaign → PRN
+-- → roster → template → dedup, then INSERTs. Anonymous templates have their
+-- identity stripped before persistence.
+CREATE OR REPLACE FUNCTION submit_feedback(
+  p_code                TEXT,
+  p_prn                 TEXT,
+  p_template_code       form_template_code,
+  p_offering_subject_id UUID,
+  p_identity            JSONB,
+  p_answers             JSONB,
+  p_remarks             JSONB
+)
+RETURNS UUID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_ac       RECORD;
+  v_camp     RECORD;
+  v_norm     TEXT := normalize_prn(p_prn);
+  v_template RECORD;
+  v_hash     TEXT;
+  v_id       UUID;
+  v_salt     TEXT := app_dedup_salt();
+BEGIN
+  SELECT * INTO v_ac FROM access_codes WHERE code = p_code;
+  IF NOT FOUND THEN RAISE EXCEPTION 'invalid_or_expired_code' USING ERRCODE='P0001'; END IF;
+
+  SELECT * INTO v_camp FROM campaigns WHERE id = v_ac.campaign_id;
+  IF v_camp.status <> 'open'
+     OR now() < v_camp.opens_at OR now() > v_camp.closes_at
+     OR now() > v_ac.expires_at THEN
+    RAISE EXCEPTION 'invalid_or_expired_code' USING ERRCODE='P0001';
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM class_rosters
+                 WHERE offering_id = v_ac.offering_id
+                   AND normalize_prn(prn) = v_norm) THEN
+    RAISE EXCEPTION 'prn_not_in_roster' USING ERRCODE='P0002';
+  END IF;
+
+  SELECT * INTO v_template FROM form_templates
+   WHERE id = v_camp.template_id AND code = p_template_code;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'template_mismatch' USING ERRCODE='P0005';
+  END IF;
+
+  -- per-subject required only for faculty
+  IF v_template.requires_per_subject AND p_offering_subject_id IS NULL THEN
+    RAISE EXCEPTION 'offering_subject_required' USING ERRCODE='P0006';
+  END IF;
+
+  v_hash := encode(digest(
+    v_norm || v_ac.campaign_id::TEXT
+           || COALESCE(p_offering_subject_id::TEXT,'')
+           || v_salt,
+    'sha256'), 'hex');
+
+  BEGIN
+    INSERT INTO submissions(campaign_id, offering_id, offering_subject_id, template_id,
+                            identity, dedup_hash, answers, remarks)
+    VALUES (v_ac.campaign_id, v_ac.offering_id, p_offering_subject_id, v_template.id,
+            CASE WHEN v_template.anonymous THEN NULL ELSE p_identity END,
+            v_hash, p_answers, p_remarks)
+    RETURNING id INTO v_id;
+  EXCEPTION WHEN unique_violation THEN
+    RAISE EXCEPTION 'duplicate_submission' USING ERRCODE='P0003';
+  END;
+
+  RETURN v_id;
+END $$;
+
+GRANT EXECUTE ON FUNCTION submit_feedback(TEXT, TEXT, form_template_code, UUID, JSONB, JSONB, JSONB)
+  TO anon, authenticated;
