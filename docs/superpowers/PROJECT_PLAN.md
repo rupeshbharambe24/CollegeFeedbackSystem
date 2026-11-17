@@ -12,7 +12,7 @@ This file is the entry point. It links to the spec and the four phase plans, sum
 | Document | Purpose |
 |---|---|
 | [Spec](./specs/2026-04-28-college-feedback-system-design.md) | Full product + technical design. Approved 2026-04-28. |
-| [Phase 1 plan](./plans/2026-04-28-college-feedback-phase1-foundation.md) | **Detailed TDD plan.** Bootstrap + Supabase Cloud + schema + RLS + RPCs + form-template seed + smoke UI. Ready to execute. |
+| Phase 1 plan (not committed; implemented on branch `phase1-foundation`) | **Detailed TDD plan.** Bootstrap + Supabase Cloud + schema + RLS + RPCs + form-template seed + smoke UI. Ready to execute. |
 | [Phase 2 outline](./plans/2026-04-28-college-feedback-phase2-admin-console.md) | Admin Console UI (login + 17 admin screens). Outline only — expand to TDD plan before execution. |
 | [Phase 3 outline](./plans/2026-04-28-college-feedback-phase3-student-flow-and-reports.md) | Mobile-first student flow + four report outputs. Outline only — expand before execution. |
 | [Phase 4 outline](./plans/2026-04-28-college-feedback-phase4-polish-and-deploy.md) | Email notifications, super-admin tools, accessibility, deployment. Outline only — expand before execution. |

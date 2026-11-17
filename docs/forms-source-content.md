@@ -1,6 +1,6 @@
 # Feedback Forms — Source Content (text-only reconstruction)
 
-> **NOTE:** The original `.docx` and `.xlsx` source files were lost on 2026-04-28 due to a destructive `--overwrite` flag in a scaffold step. This file preserves the question content extracted from those originals earlier in the same session, so the form schemas in migration `0007_seed_form_templates.sql` can be reproduced or audited. See `MEMORY.md` for incident details.
+> **NOTE:** The original `.docx` and `.xlsx` source forms were corrupted (zero-filled) during an early scaffold step and have been removed from the repo. This file preserves the question content extracted from those originals, so the form schemas in migration `0007_seed_form_templates.sql` can be reproduced or audited.
 
 ---
 
